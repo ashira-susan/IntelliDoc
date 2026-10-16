@@ -1,28 +1,44 @@
-import { useEffect, useState } from "react";
-import { getHealth } from "./services/api";
+import { useCallback, useEffect, useState } from "react";
+import DocumentTable from "./components/DocumentTable";
+import UploadPanel from "./components/UploadPanel";
+import { getDocuments, getHealth } from "./services/api";
 
 function App() {
   const [health, setHealth] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const [error, setError] = useState(null);
+
+  const loadDocuments = useCallback(() => {
+    getDocuments()
+      .then(setDocuments)
+      .catch((err) => setError(err.message));
+  }, []);
 
   useEffect(() => {
     getHealth()
       .then(setHealth)
       .catch((err) => setError(err.message));
-  }, []);
+    loadDocuments();
+  }, [loadDocuments]);
 
   return (
-    <div style={{ fontFamily: "sans-serif", maxWidth: 600, margin: "3rem auto" }}>
+    <div
+      style={{ fontFamily: "sans-serif", maxWidth: 800, margin: "2rem auto" }}
+    >
       <h1>IntelliDoc</h1>
-      <h3>System status</h3>
-      {error && <p style={{ color: "crimson" }}>Backend unreachable: {error}</p>}
-      {!health && !error && <p>Checking backend...</p>}
-      {health && (
-        <ul>
-          <li>API: {health.status}</li>
-          <li>Database: {health.database}</li>
-        </ul>
+      <p>
+        API: {health ? health.status : "..."} | Database:{" "}
+        {health ? health.database : "..."}
+      </p>
+
+      {error && (
+        <p style={{ color: "crimson" }}>Backend unreachable: {error}</p>
       )}
+
+      <UploadPanel onUploaded={loadDocuments} />
+
+      <h2>Documents ({documents.length})</h2>
+      <DocumentTable documents={documents} />
     </div>
   );
 }
