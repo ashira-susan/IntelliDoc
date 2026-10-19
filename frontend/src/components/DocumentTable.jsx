@@ -7,7 +7,7 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function DocumentTable({ documents }) {
+export default function DocumentTable({ documents, onViewDocument }) {
   if (documents.length === 0) {
     return <p>No documents yet. Upload some to get started.</p>;
   }
@@ -23,6 +23,7 @@ export default function DocumentTable({ documents }) {
             <th>Size</th>
             <th>Status</th>
             <th>Uploaded</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -41,6 +42,14 @@ export default function DocumentTable({ documents }) {
                         : `${doc.uploaded_at}Z`
                     ).toLocaleString()
                   : "—"}
+              </td>
+              <td>
+               <button
+                type="button"
+                onClick={() => onViewDocument(doc.id)}
+               >
+                View Details
+               </button>
               </td>
             </tr>
           ))}

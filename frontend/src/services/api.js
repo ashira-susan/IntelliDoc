@@ -50,3 +50,17 @@ export async function getDuplicates() {
 
   return response.json();
 }
+
+export async function getDocumentDetails(id) {
+  const response = await fetch(`${API_URL}/api/documents/${id}`);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Document not found");
+    }
+
+    throw new Error(`Server responded with ${response.status}`);
+  }
+
+  return response.json();
+}

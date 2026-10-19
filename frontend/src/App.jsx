@@ -1,3 +1,4 @@
+import DocumentDetails from "./components/DocumentDetails";
 import { useCallback, useEffect, useState } from "react";
 import DocumentTable from "./components/DocumentTable";
 import UploadPanel from "./components/UploadPanel";
@@ -9,6 +10,7 @@ function App() {
   const [documents, setDocuments] = useState([]);
   const [duplicates, setDuplicates] = useState(null);
   const [error, setError] = useState(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState(null);
 
   const loadDocuments = useCallback(() => {
     getDocuments()
@@ -28,6 +30,10 @@ function App() {
     loadDocuments();
   }, [loadDocuments]);
 
+  const handleViewDocument = (id) => {
+    setSelectedDocumentId(id);
+  };
+
   return (
     <div
       style={{ fontFamily: "sans-serif", maxWidth: 800, margin: "2rem auto" }}
@@ -46,7 +52,17 @@ function App() {
       <UploadPanel onUploaded={loadDocuments} />
 
       <h2>Documents ({documents.length})</h2>
-      <DocumentTable documents={documents} />
+      <DocumentTable
+        documents={documents}
+        onViewDocument={handleViewDocument}
+      />
+
+      {selectedDocumentId !== null && (
+       <DocumentDetails
+        documentId={selectedDocumentId}
+        onClose={() => setSelectedDocumentId(null)}
+       />
+      )}
 
       <h2>Exact Duplicate Detection</h2>
       <p>

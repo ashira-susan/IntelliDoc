@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from .database import BASE_DIR, DB_PATH, Base, engine, get_db
 from .models import Document
-
 from .algorithms.hashing import sha256_of_bytes, sha256_of_file
+from .algorithms.extraction import ExtractionError, extract_text
 
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -29,6 +29,22 @@ app.add_middleware(
 )
 
 
+def process_document_text(doc: Document) -> None:
+    """Extract text and update extraction-related document fields."""
+    path = UPLOAD_DIR / doc.stored_filename
+
+    try:
+        extracted = extract_text(path)
+        doc.extracted_text = extracted
+        doc.status = "ready" if extracted.strip() else "no_text"
+    except ExtractionError:
+        doc.extracted_text = None
+        doc.status = "extraction_failed"
+    except OSError:
+        doc.extracted_text = None
+        doc.status = "extraction_failed"
+
+
 @app.get("/api/health")
 def health():
     try:
@@ -46,14 +62,18 @@ async def upload_documents(
     files: list[UploadFile] = File(...), db: Session = Depends(get_db)
 ):
     results = []
+
     for f in files:
         name = f.filename or "unnamed"
         ext = Path(name).suffix.lower()
 
         if ext not in ALLOWED_EXTENSIONS:
             results.append(
-                {"filename": name, "status": "rejected",
-                 "reason": "Unsupported file type"}
+                {
+                    "filename": name,
+                    "status": "rejected",
+                    "reason": "Unsupported file type",
+                }
             )
             continue
 
@@ -61,20 +81,27 @@ async def upload_documents(
 
         if len(content) == 0:
             results.append(
-                {"filename": name, "status": "rejected",
-                 "reason": "File is empty"}
+                {
+                    "filename": name,
+                    "status": "rejected",
+                    "reason": "File is empty",
+                }
             )
             continue
 
         if len(content) > MAX_FILE_SIZE:
             results.append(
-                {"filename": name, "status": "rejected",
-                 "reason": "File exceeds 10 MB limit"}
+                {
+                    "filename": name,
+                    "status": "rejected",
+                    "reason": "File exceeds 10 MB limit",
+                }
             )
             continue
 
         stored_name = f"{uuid.uuid4().hex}{ext}"
-        (UPLOAD_DIR / stored_name).write_bytes(content)
+        stored_path = UPLOAD_DIR / stored_name
+        stored_path.write_bytes(content)
 
         doc = Document(
             original_filename=name,
@@ -82,13 +109,29 @@ async def upload_documents(
             file_type=ext.lstrip("."),
             file_size=len(content),
             file_hash=sha256_of_bytes(content),
+            extracted_text=None,
+            status="uploaded",
         )
-        db.add(doc)
-        db.commit()
-        db.refresh(doc)
+
+        try:
+            process_document_text(doc)
+            db.add(doc)
+            db.commit()
+            db.refresh(doc)
+        except Exception:
+            db.rollback()
+            # Do not leave an untracked upload behind if database
+            # persistence fails.
+            if stored_path.exists():
+                stored_path.unlink()
+            raise
 
         results.append(
-            {"id": doc.id, "filename": name, "status": "uploaded"}
+            {
+                "id": doc.id,
+                "filename": name,
+                "status": doc.status,
+            }
         )
 
     return {"results": results}
@@ -97,6 +140,7 @@ async def upload_documents(
 @app.get("/api/documents")
 def list_documents(db: Session = Depends(get_db)):
     docs = db.query(Document).order_by(Document.uploaded_at.desc()).all()
+
     return [
         {
             "id": d.id,
@@ -104,7 +148,9 @@ def list_documents(db: Session = Depends(get_db)):
             "file_type": d.file_type,
             "file_size": d.file_size,
             "status": d.status,
-            "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+            "uploaded_at": (
+                d.uploaded_at.isoformat() if d.uploaded_at else None
+            ),
         }
         for d in docs
     ]
@@ -129,6 +175,35 @@ def rehash_documents(db: Session = Depends(get_db)):
             updated += 1
         else:
             missing_files += 1
+
+    db.commit()
+
+    return {
+        "updated": updated,
+        "missing_files": missing_files,
+    }
+
+
+@app.post("/api/documents/reextract")
+def reextract_documents(db: Session = Depends(get_db)):
+    updated = 0
+    missing_files = 0
+
+    documents = (
+        db.query(Document)
+        .filter(Document.extracted_text.is_(None))
+        .all()
+    )
+
+    for d in documents:
+        path = UPLOAD_DIR / d.stored_filename
+
+        if not path.is_file():
+            missing_files += 1
+            continue
+
+        process_document_text(d)
+        updated += 1
 
     db.commit()
 
@@ -178,4 +253,27 @@ def get_duplicates(db: Session = Depends(get_db)):
     return {
         "duplicate_groups": result,
         "total_groups": len(result),
+    }
+
+
+@app.get("/api/documents/{doc_id}")
+def get_document(doc_id: int, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+
+    if doc is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return {
+        "id": doc.id,
+        "filename": doc.original_filename,
+        "file_type": doc.file_type,
+        "file_size": doc.file_size,
+        "file_hash": doc.file_hash,
+        "extracted_text": doc.extracted_text,
+        "status": doc.status,
+        "uploaded_at": (
+            doc.uploaded_at.isoformat() if doc.uploaded_at else None
+        ),
     }
