@@ -19,7 +19,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="IntelliDoc API")
+app = FastAPI(title="Mr. IntelliDoc API")
 
 app.add_middleware(
     CORSMiddleware,

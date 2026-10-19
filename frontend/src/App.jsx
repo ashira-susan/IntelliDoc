@@ -32,7 +32,7 @@ function App() {
     <div
       style={{ fontFamily: "sans-serif", maxWidth: 800, margin: "2rem auto" }}
     >
-      <h1>IntelliDoc</h1>
+      <h1>Mr. IntelliDoc</h1>
 
       <p>
         API: {health ? health.status : "..."} | Database:{" "}
