@@ -40,3 +40,13 @@ export async function uploadDocuments(files) {
 
   return response.json();
 }
+
+export async function getDuplicates() {
+  const response = await fetch(`${API_URL}/api/duplicates`);
+
+  if (!response.ok) {
+    throw new Error(`Server responded with ${response.status}`);
+  }
+
+  return response.json();
+}

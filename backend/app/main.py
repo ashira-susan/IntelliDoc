@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from .database import BASE_DIR, DB_PATH, Base, engine, get_db
 from .models import Document
 
+from .algorithms.hashing import sha256_of_bytes, sha256_of_file
+
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -79,6 +81,7 @@ async def upload_documents(
             stored_filename=stored_name,
             file_type=ext.lstrip("."),
             file_size=len(content),
+            file_hash=sha256_of_bytes(content),
         )
         db.add(doc)
         db.commit()
@@ -105,3 +108,74 @@ def list_documents(db: Session = Depends(get_db)):
         }
         for d in docs
     ]
+
+
+@app.post("/api/documents/rehash")
+def rehash_documents(db: Session = Depends(get_db)):
+    updated = 0
+    missing_files = 0
+
+    documents = (
+        db.query(Document)
+        .filter(Document.file_hash.is_(None))
+        .all()
+    )
+
+    for d in documents:
+        path = UPLOAD_DIR / d.stored_filename
+
+        if path.is_file():
+            d.file_hash = sha256_of_file(path)
+            updated += 1
+        else:
+            missing_files += 1
+
+    db.commit()
+
+    return {
+        "updated": updated,
+        "missing_files": missing_files,
+    }
+
+
+@app.get("/api/duplicates")
+def get_duplicates(db: Session = Depends(get_db)):
+    groups = {}
+
+    documents = (
+        db.query(Document)
+        .filter(Document.file_hash.isnot(None))
+        .all()
+    )
+
+    for d in documents:
+        groups.setdefault(d.file_hash, []).append(d)
+
+    result = []
+
+    for file_hash, docs in groups.items():
+        if len(docs) > 1:
+            result.append(
+                {
+                    "hash": file_hash,
+                    "count": len(docs),
+                    "documents": [
+                        {
+                            "id": d.id,
+                            "filename": d.original_filename,
+                            "file_size": d.file_size,
+                            "uploaded_at": (
+                                d.uploaded_at.isoformat()
+                                if d.uploaded_at
+                                else None
+                            ),
+                        }
+                        for d in docs
+                    ],
+                }
+            )
+
+    return {
+        "duplicate_groups": result,
+        "total_groups": len(result),
+    }
