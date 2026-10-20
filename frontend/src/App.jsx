@@ -4,6 +4,7 @@ import DocumentTable from "./components/DocumentTable";
 import UploadPanel from "./components/UploadPanel";
 import DuplicatePanel from "./components/DuplicatePanel";
 import { getDocuments, getHealth, getDuplicates } from "./services/api";
+import RelatedPanel from "./components/RelatedPanel";
 
 function App() {
   const [health, setHealth] = useState(null);
@@ -69,6 +70,8 @@ function App() {
         Files with identical SHA-256 fingerprints are grouped together.
       </p>
       <DuplicatePanel data={duplicates} />
+
+      <RelatedPanel />
     </div>
   );
 }

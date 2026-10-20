@@ -1,0 +1,9 @@
+Introduction to Machine Learning Regression
+
+Regression is a supervised machine learning task used to predict continuous numerical values from input features. Examples include estimating house prices, forecasting energy consumption, and predicting product demand. A regression model learns a relationship between input variables and a target value using examples from a training dataset.
+
+In a typical workflow, the dataset is inspected, missing or unsuitable values are handled, and relevant features are selected. The data is then divided into training and testing sets. The model learns its parameters from the training examples, while the test set helps estimate how well it performs on unseen observations.
+
+Linear regression is a common baseline method. It models the target as a weighted combination of input features and an intercept. During training, the model estimates coefficients that reduce a chosen loss function, often the mean squared error. More complex regression methods can represent nonlinear patterns, but their additional flexibility may increase the risk of overfitting.
+
+Performance can be evaluated using metrics such as mean absolute error, mean squared error, and the coefficient of determination, known as R-squared. A useful model should perform well on data that was not used to fit its parameters. Feature scaling, appropriate validation, and careful feature selection can improve the learning process. Regression results should also be interpreted in the context of the data quality, assumptions, and limitations of the application.

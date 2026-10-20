@@ -2,7 +2,7 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, UploadFile
+from fastapi import Depends, FastAPI, File, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from .database import BASE_DIR, DB_PATH, Base, engine, get_db
 from .models import Document
 from .algorithms.hashing import sha256_of_bytes, sha256_of_file
 from .algorithms.extraction import ExtractionError, extract_text
+from .algorithms.similarity import similar_pairs
 
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -154,6 +155,73 @@ def list_documents(db: Session = Depends(get_db)):
         }
         for d in docs
     ]
+
+
+@app.get("/api/related")
+def get_related_documents(
+    threshold: float = Query(default=0.25, ge=0.0, le=1.0),
+    db: Session = Depends(get_db),
+):
+    """Find content-similar document pairs, excluding exact duplicates."""
+    all_documents = (
+        db.query(Document)
+        .filter(
+            Document.status == "ready",
+            Document.extracted_text.isnot(None),
+        )
+        .order_by(Document.id.asc())
+        .all()
+    )
+
+    # Exclude documents whose extracted text is empty.
+    all_documents = [
+        doc for doc in all_documents
+        if doc.extracted_text and doc.extracted_text.strip()
+    ]
+
+    # Keep one representative per exact file hash.
+    # Documents without a hash are retained individually.
+    documents = []
+    seen_hashes = set()
+
+    for doc in all_documents:
+        if doc.file_hash:
+            if doc.file_hash in seen_hashes:
+                continue
+            seen_hashes.add(doc.file_hash)
+
+        documents.append(doc)
+
+    texts = [doc.extracted_text for doc in documents]
+    pairs = similar_pairs(texts, threshold=threshold)
+
+    results = []
+
+    for pair in pairs:
+        first = documents[pair["first_index"]]
+        second = documents[pair["second_index"]]
+
+        results.append(
+            {
+                "doc_a": {
+                    "id": first.id,
+                    "filename": first.original_filename,
+                },
+                "doc_b": {
+                    "id": second.id,
+                    "filename": second.original_filename,
+                },
+                "score": round(pair["score"], 4),
+                "shared_keywords": pair["shared_keywords"],
+            }
+        )
+
+    return {
+        "threshold": threshold,
+        "documents_compared": len(documents),
+        "total_pairs": len(results),
+        "pairs": results,
+    }
 
 
 @app.post("/api/documents/rehash")

@@ -21,3 +21,5 @@ backend/uploads/
 .vscode/
 .DS_Store
 Thumbs.db
+milestone4-backup/
+.pytest_cache/

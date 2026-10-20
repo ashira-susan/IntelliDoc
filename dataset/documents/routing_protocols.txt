@@ -1,0 +1,9 @@
+Routing Protocols in Computer Networks
+
+Routing protocols help routers discover reachable networks and exchange information that supports path selection. When a network contains multiple routers, each router needs a way to determine where packets should be forwarded. Routing protocols provide a systematic method for learning routes instead of requiring every path to be configured manually.
+
+Different protocols use different approaches to choosing a path. Distance-vector protocols share route information with neighboring routers and use metrics such as hop count to estimate distance. Link-state protocols distribute information about network links, allowing routers to calculate suitable paths from a broader network view. The choice of protocol depends on network size, topology, administrative requirements, and convergence needs.
+
+A router stores its selected routes in a routing table. When a packet arrives, the router checks the destination address and forwards the packet through the appropriate outgoing interface or next-hop router. If a link fails, a dynamic routing protocol may advertise the change and help routers select an alternative route.
+
+Routing protocols must handle changing conditions carefully. Slow convergence can temporarily leave routers with outdated information, while routing loops can cause packets to circulate unnecessarily. Correct configuration and monitoring help maintain stable communication and efficient packet forwarding across interconnected networks.

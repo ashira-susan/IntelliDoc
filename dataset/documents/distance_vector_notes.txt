@@ -1,0 +1,9 @@
+Distance-Vector Routing Notes
+
+Distance-vector routing is a method used by routers to determine paths to destination networks. Each router maintains information about the distance to known destinations and the direction, or next hop, used to reach them. Routers periodically exchange routing information with their directly connected neighbors and update their own tables when better routes are discovered.
+
+A distance metric represents the estimated cost of reaching a destination. In some protocols, the metric is the number of router hops between the source and destination. A router compares the information received from its neighbors with its existing routes and selects a route according to the protocol's calculation rules.
+
+The Routing Information Protocol, commonly called RIP, is a familiar example of a distance-vector routing protocol. RIP uses hop count as its routing metric and limits the maximum usable hop count, making it unsuitable for some large networks. Other routing approaches may use different metrics and mechanisms to improve route selection.
+
+Distance-vector routing has advantages because its basic operation is relatively straightforward. However, routers can temporarily maintain incorrect information after a network change. Routing loops and the count-to-infinity problem are well-known challenges. Techniques such as split horizon and triggered updates can help reduce these problems and improve convergence after failures.

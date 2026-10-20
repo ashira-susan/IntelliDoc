@@ -1,0 +1,9 @@
+Computer Network Routing
+
+Routing is an important function in computer networks. It determines how data packets travel from a source device to a destination across interconnected networks. A router examines the destination IP address in a packet and consults its routing table to select an appropriate next hop. The selected path should help packets reach their destination efficiently.
+
+A routing table contains information about available network destinations, next-hop addresses, and interface details. Routes may be configured manually by an administrator or learned dynamically through routing protocols. Static routing is useful in small, predictable networks, while dynamic routing can adapt when network conditions or available paths change.
+
+Routing protocols allow routers to exchange information about network reachability. Some protocols calculate paths using distance-related metrics, while others use link-state information to build a view of the network. Metrics may include hop count, bandwidth, delay, or administrative preferences, depending on the protocol.
+
+An effective routing system improves connectivity and helps data move through complex networks. However, poor route selection can cause delays, loops, or packet loss. Network administrators therefore monitor routing tables and protocol behavior to maintain reliable communication.

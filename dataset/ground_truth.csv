@@ -1,0 +1,17 @@
+doc_a,doc_b,relationship
+cn_routing.txt,cn_routing_copy.txt,duplicate
+cn_routing.txt,routing_protocols.txt,related
+cn_routing.txt,distance_vector_notes.txt,related
+routing_protocols.txt,distance_vector_notes.txt,related
+dbms_normalization.txt,normal_forms_notes.txt,related
+dbms_normalization.txt,sql_tables_basics.txt,related
+normal_forms_notes.txt,sql_tables_basics.txt,related
+ml_regression.txt,linear_regression_notes.txt,related
+ml_regression.txt,ml_overfitting.txt,related
+linear_regression_notes.txt,ml_overfitting.txt,related
+cn_routing.txt,dbms_normalization.txt,unrelated
+cn_routing.txt,ml_regression.txt,unrelated
+cn_routing.txt,cooking_notes.txt,unrelated
+cn_routing.txt,music_history.txt,unrelated
+dbms_normalization.txt,ml_regression.txt,unrelated
+cooking_notes.txt,music_history.txt,unrelated

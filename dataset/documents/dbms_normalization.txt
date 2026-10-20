@@ -1,0 +1,9 @@
+Database Normalization
+
+Database normalization is a process used to organize relational database tables and reduce unnecessary data redundancy. When the same information is stored repeatedly, updates can become difficult and inconsistent values may appear. Normalization divides data into suitable tables and establishes relationships between them to improve data integrity.
+
+A poorly designed table may experience insertion, update, and deletion anomalies. For example, changing a student's department name in several rows can lead to inconsistent records if one row is missed. Separating student and department information into related tables can reduce this risk.
+
+The First Normal Form requires each field to contain a single value and avoids repeating groups. The Second Normal Form builds on the First Normal Form by removing partial dependencies of non-key attributes on a part of a composite candidate key. The Third Normal Form further addresses transitive dependencies, where a non-key attribute depends on another non-key attribute rather than directly on a key.
+
+Normalization relies on concepts such as candidate keys, functional dependencies, and primary keys. A foreign key can connect related tables while enforcing referential integrity. Although normalization improves consistency and reduces duplication, database designers must also consider query requirements and performance. In some applications, carefully chosen denormalization may be useful when read performance is more important than minimizing redundancy.

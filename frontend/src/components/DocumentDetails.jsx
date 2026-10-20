@@ -2,31 +2,28 @@ import { useEffect, useState } from "react";
 import { getDocumentDetails } from "../services/api";
 
 function DocumentDetails({ documentId, onClose }) {
-  const [document, setDocument] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    setLoading(true);
-    setError(null);
-    setDocument(null);
-
     getDocumentDetails(documentId)
       .then((data) => {
         if (!cancelled) {
-          setDocument(data);
+          setResult({
+            documentId,
+            document: data,
+            error: null,
+          });
         }
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
+          setResult({
+            documentId,
+            document: null,
+            error: err.message,
+          });
         }
       });
 
@@ -34,6 +31,13 @@ function DocumentDetails({ documentId, onClose }) {
       cancelled = true;
     };
   }, [documentId]);
+
+  const currentResult =
+    result?.documentId === documentId ? result : null;
+
+  const document = currentResult?.document ?? null;
+  const error = currentResult?.error ?? null;
+  const loading = currentResult === null;
 
   return (
     <section

@@ -1,0 +1,11 @@
+Linear Regression: Model Fitting and Evaluation
+
+Linear regression estimates a numerical target by fitting a linear relationship between explanatory variables and an output. In simple linear regression, one input feature is used. Multiple linear regression extends the approach to several features, with each feature contributing through an estimated coefficient.
+
+The model prediction consists of the sum of each input value multiplied by its corresponding weight, together with an intercept. Training commonly involves minimizing the sum or average of squared differences between actual targets and predicted values. These differences are called residuals. The fitted coefficients describe the relationship represented by the model, although they do not automatically establish causation.
+
+A dataset is commonly separated into training and testing portions before model evaluation. The training portion is used to estimate parameters, while the testing portion provides an independent assessment. For more reliable model selection, cross-validation can evaluate performance across several data partitions.
+
+Mean absolute error measures the average magnitude of prediction errors. Mean squared error gives greater weight to larger errors because residuals are squared. R-squared compares the model's performance with a baseline based on the target mean, but it should not be interpreted alone as proof of good generalization.
+
+Linear regression works well when a linear approximation is suitable and the data supports stable parameter estimates. Unusual observations, correlated predictors, nonlinear relationships, and changes in the data distribution can affect its reliability. Residual analysis and evaluation on unseen examples help reveal these limitations.

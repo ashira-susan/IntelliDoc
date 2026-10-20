@@ -1,0 +1,9 @@
+Notes on Relational Database Normal Forms
+
+Relational database design uses normal forms to evaluate whether information is arranged appropriately across tables. The goal is to avoid storing the same fact unnecessarily and to prevent anomalies when records are inserted, modified, or deleted. Functional dependencies help designers understand which attributes determine other attributes and guide the process of choosing table structures.
+
+First Normal Form, or 1NF, requires values in each field to be atomic according to the database design and eliminates repeating groups. Second Normal Form, or 2NF, requires 1NF and removes partial functional dependencies of non-key attributes on a proper subset of a candidate key. This matters especially when a table uses a composite key containing multiple attributes.
+
+Third Normal Form, or 3NF, addresses transitive dependencies involving non-key attributes. A design may satisfy 2NF but still contain a dependency in which one non-key attribute determines another. Decomposing the relation into smaller tables can help eliminate that dependency.
+
+Primary keys identify records, while foreign keys represent relationships between tables. These constraints help maintain consistent references when related records are inserted or deleted. Normalization is not simply about creating as many tables as possible; the resulting schema must remain understandable and support the application's queries. Designers balance data integrity, storage efficiency, and retrieval performance when deciding how far to normalize a database.

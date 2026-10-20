@@ -1,0 +1,9 @@
+SQL Tables and Basic Database Operations
+
+Structured Query Language, or SQL, is widely used to define, retrieve, and manipulate data in relational databases. Information is organized into tables consisting of rows and columns. Each column represents an attribute, such as a student identifier or course name, while each row represents one record.
+
+A table definition specifies column names and data types. Constraints can enforce rules on the stored information. A primary key uniquely identifies each row, and a foreign key links records in one table to records in another. Other constraints, such as NOT NULL and UNIQUE, help prevent invalid or repeated values where they are not allowed.
+
+The CREATE TABLE statement defines a table structure. INSERT adds new records, UPDATE changes existing values, and DELETE removes selected records. SELECT retrieves information and can filter rows with WHERE, arrange results using ORDER BY, or summarize values with aggregate functions. JOIN operations combine related information from multiple tables using matching columns.
+
+Good database design requires more than knowing SQL commands. Designers must select appropriate data types, define meaningful keys, and consider how tables relate to each other. Normalization can reduce redundant storage and prevent update anomalies. Indexes may improve retrieval speed, although they also require storage and can add overhead to data modification. Reliable applications combine suitable schema design with carefully written queries and integrity constraints.

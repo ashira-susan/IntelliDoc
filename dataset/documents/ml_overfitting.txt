@@ -1,0 +1,11 @@
+Overfitting and Generalization in Machine Learning
+
+Overfitting occurs when a machine learning model learns patterns specific to its training data, including noise or accidental irregularities, instead of capturing relationships that generalize to new examples. An overfit model may achieve very low training error while producing much larger errors on validation or test data.
+
+Model complexity is one factor that influences overfitting. A model with too many parameters may fit small fluctuations in a dataset. Limited training examples, irrelevant features, data leakage, and repeated tuning against the same validation set can also produce misleading performance estimates.
+
+Generalization refers to the ability of a trained model to perform effectively on previously unseen observations drawn from the relevant data distribution. To assess generalization, data should be divided carefully into training, validation, and test sets. The test set should remain separate from decisions made during model development.
+
+Several methods can reduce overfitting. Regularization penalizes overly large or complex parameter values. Feature selection removes inputs that contribute little useful information. Cross-validation provides a more robust basis for selecting model settings, while collecting more representative training examples can improve coverage of real-world variation.
+
+A learning curve can help diagnose whether a model is underfitting or overfitting by comparing training and validation performance as training data increases. The goal is not simply to minimize training error, but to obtain reliable predictions on new data while avoiding unnecessary complexity.

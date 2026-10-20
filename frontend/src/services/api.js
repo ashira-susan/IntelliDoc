@@ -64,3 +64,16 @@ export async function getDocumentDetails(id) {
 
   return response.json();
 }
+
+
+export async function getRelated(threshold = 0.25) {
+  const response = await fetch(
+    `${API_URL}/api/related?threshold=${encodeURIComponent(threshold)}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Related-document search failed (${response.status})`);
+  }
+
+  return response.json();
+}
