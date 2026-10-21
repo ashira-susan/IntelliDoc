@@ -55,7 +55,7 @@ def shared_keywords(vectorizer, matrix, first_index: int, second_index: int,
 
 def similar_pairs(
     texts: list[str],
-    threshold: float = 0.25,
+    threshold: float = 0.10,
 ) -> list[dict]:
     """Find document pairs whose cosine similarity meets the threshold.
 

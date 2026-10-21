@@ -159,7 +159,7 @@ def list_documents(db: Session = Depends(get_db)):
 
 @app.get("/api/related")
 def get_related_documents(
-    threshold: float = Query(default=0.25, ge=0.0, le=1.0),
+    threshold: float = Query(default=0.10, ge=0.0, le=1.0),
     db: Session = Depends(get_db),
 ):
     """Find content-similar document pairs, excluding exact duplicates."""
