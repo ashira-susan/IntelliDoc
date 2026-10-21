@@ -1,3 +1,4 @@
+import FamilyPanel from "./components/FamilyPanel";
 import DocumentDetails from "./components/DocumentDetails";
 import { useCallback, useEffect, useState } from "react";
 import DocumentTable from "./components/DocumentTable";
@@ -75,6 +76,8 @@ function App() {
       <DuplicatePanel data={duplicates} />
 
       <RelatedPanel />
+
+      <FamilyPanel />
     </div>
   );
 }

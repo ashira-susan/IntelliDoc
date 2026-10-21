@@ -1,0 +1,3 @@
+Routing protocols help routers exchange network reachability information and select paths for forwarding packets. Distance vector routing uses information shared by neighboring routers. Each router maintains a routing table containing destination networks, metrics, and next-hop information. Routing decisions depend on the routing algorithm and the metric used to compare available paths.
+
+Distance vector protocols periodically exchange routing updates with neighboring routers. These updates help routers learn about reachable networks and compare route metrics when choosing the best available path.

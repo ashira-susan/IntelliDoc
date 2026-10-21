@@ -27,6 +27,7 @@ export async function uploadDocuments(files) {
 
   for (const file of files) {
     formData.append("files", file);
+    formData.append("last_modified", String(file.lastModified));
   }
 
   const response = await fetch(`${API_URL}/api/documents/upload`, {
@@ -93,6 +94,23 @@ export async function searchDocuments(query, limit = 10) {
     }
 
     throw new Error(`Search failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
+
+export async function getFamilies(threshold = 0.60) {
+  const response = await fetch(
+    `${API_URL}/api/families?threshold=${encodeURIComponent(threshold)}`
+  );
+
+  if (!response.ok) {
+    if (response.status === 422) {
+      throw new Error("The family-detection threshold must be between 0 and 1.");
+    }
+
+    throw new Error(`Version-family detection failed (${response.status})`);
   }
 
   return response.json();

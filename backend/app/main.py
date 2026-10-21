@@ -1,8 +1,9 @@
 import sqlite3
 import uuid
 from pathlib import Path
+from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, File, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -12,12 +13,20 @@ from .algorithms.hashing import sha256_of_bytes, sha256_of_file
 from .algorithms.extraction import ExtractionError, extract_text
 from .algorithms.similarity import build_tfidf, similar_pairs
 from .algorithms.search import make_snippet, search_documents
+from .algorithms.versioning import (
+    date_proximity,
+    family_score,
+    filename_similarity,
+    group_indices,
+)
 
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+FAMILY_THRESHOLD = 0.60
+FAMILY_MIN_CONTENT = 0.30
 
 Base.metadata.create_all(bind=engine)
 
@@ -61,11 +70,13 @@ def health():
 
 @app.post("/api/documents/upload")
 async def upload_documents(
-    files: list[UploadFile] = File(...), db: Session = Depends(get_db)
+    files: list[UploadFile] = File(...),
+    last_modified: list[int] = Form(default=[]),
+    db: Session = Depends(get_db),
 ):
     results = []
 
-    for f in files:
+    for idx, f in enumerate(files):
         name = f.filename or "unnamed"
         ext = Path(name).suffix.lower()
 
@@ -105,6 +116,15 @@ async def upload_documents(
         stored_path = UPLOAD_DIR / stored_name
         stored_path.write_bytes(content)
 
+        modified = None
+        if idx < len(last_modified):
+            try:
+                modified = datetime.fromtimestamp(
+                    last_modified[idx] / 1000, tz=timezone.utc
+                ).replace(tzinfo=None)
+            except (ValueError, OSError, OverflowError):
+                modified = None
+
         doc = Document(
             original_filename=name,
             stored_filename=stored_name,
@@ -113,6 +133,7 @@ async def upload_documents(
             file_hash=sha256_of_bytes(content),
             extracted_text=None,
             status="uploaded",
+            modified_at=modified,
         )
 
         try:
@@ -397,6 +418,147 @@ def get_duplicates(db: Session = Depends(get_db)):
     return {
         "duplicate_groups": result,
         "total_groups": len(result),
+    }
+
+
+@app.get("/api/families")
+def get_document_families(
+    threshold: float = Query(default=FAMILY_THRESHOLD, ge=0.0, le=1.0),
+    db: Session = Depends(get_db),
+):
+    """Group likely document versions using content, filename, and date signals."""
+    documents = (
+        db.query(Document)
+        .filter(
+            Document.status == "ready",
+            Document.extracted_text.isnot(None),
+        )
+        .order_by(Document.id.asc())
+        .all()
+    )
+
+    # Ignore documents whose extracted text is empty.
+    documents = [
+        doc for doc in documents
+        if doc.extracted_text and doc.extracted_text.strip()
+    ]
+
+    # Keep one representative per exact content hash.
+    # Exact duplicates are already handled by /api/duplicates.
+    unique_documents = []
+    seen_hashes = set()
+
+    for doc in documents:
+        if doc.file_hash:
+            if doc.file_hash in seen_hashes:
+                continue
+            seen_hashes.add(doc.file_hash)
+        unique_documents.append(doc)
+
+    documents = unique_documents
+
+    if len(documents) < 2:
+        return {
+            "threshold": threshold,
+            "minimum_content_similarity": FAMILY_MIN_CONTENT,
+            "family_count": 0,
+            "families": [],
+            "documents_compared": len(documents),
+        }
+
+    texts = [doc.extracted_text for doc in documents]
+    vectorizer, matrix = build_tfidf(texts)
+    content_matrix = (matrix * matrix.T).toarray()
+
+    edges = []
+    pair_details = {}
+
+    for i in range(len(documents)):
+        for j in range(i + 1, len(documents)):
+            content = float(content_matrix[i, j])
+
+            # Content similarity is mandatory; filename similarity alone
+            # must never establish a version-family relationship.
+            if content < FAMILY_MIN_CONTENT:
+                continue
+
+            filename = filename_similarity(
+                documents[i].original_filename,
+                documents[j].original_filename,
+            )
+            date = date_proximity(
+                documents[i].modified_at,
+                documents[j].modified_at,
+            )
+            score = family_score(content, filename, date)
+
+            if score >= threshold:
+                edges.append((i, j))
+                pair_details[(i, j)] = {
+                    "document_a_id": documents[i].id,
+                    "document_b_id": documents[j].id,
+                    "content_similarity": round(content, 4),
+                    "filename_similarity": round(filename, 4),
+                    "date_proximity": round(date, 4) if date is not None else None,
+                    "family_score": round(score, 4),
+                }
+
+    groups = group_indices(len(documents), edges)
+    families = []
+
+    for group in groups:
+        members = [documents[i] for i in group]
+        members.sort(
+            key=lambda doc: (
+                doc.modified_at is not None,
+                doc.modified_at or datetime.min,
+                doc.id,
+            )
+        )
+
+        member_ids = {doc.id for doc in members}
+        relevant_pairs = [
+            details
+            for (i, j), details in pair_details.items()
+            if documents[i].id in member_ids and documents[j].id in member_ids
+        ]
+
+        dated_members = [doc for doc in members if doc.modified_at is not None]
+        newest_by_date = max(
+            dated_members,
+            key=lambda doc: (doc.modified_at, doc.id),
+        ) if dated_members else None
+
+        families.append({
+            "family_id": min(member_ids),
+            "member_count": len(members),
+            "newest_by_date_id": newest_by_date.id if newest_by_date else None,
+            "members": [
+                {
+                    "id": doc.id,
+                    "filename": doc.original_filename,
+                    "modified_at": (
+                        doc.modified_at.isoformat()
+                        if doc.modified_at else None
+                    ),
+                    "uploaded_at": (
+                        doc.uploaded_at.isoformat()
+                        if doc.uploaded_at else None
+                    ),
+                }
+                for doc in members
+            ],
+            "pair_scores": relevant_pairs,
+        })
+
+    families.sort(key=lambda family: family["family_id"])
+
+    return {
+        "threshold": threshold,
+        "minimum_content_similarity": FAMILY_MIN_CONTENT,
+        "family_count": len(families),
+        "families": families,
+        "documents_compared": len(documents),
     }
 
 

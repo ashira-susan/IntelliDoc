@@ -15,3 +15,6 @@ cn_routing.txt,cooking_notes.txt,unrelated
 cn_routing.txt,music_history.txt,unrelated
 dbms_normalization.txt,ml_regression.txt,unrelated
 cooking_notes.txt,music_history.txt,unrelated
+cn_assignment.txt,cn_assignment_final.txt,version
+cn_assignment_final.txt,cn_assignment_final_v2.txt,version
+cn_assignment.txt,cn_assignment_final_v2.txt,version

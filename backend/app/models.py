@@ -19,3 +19,4 @@ class Document(Base):
     uploaded_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
+    modified_at = Column(DateTime, nullable=True)
