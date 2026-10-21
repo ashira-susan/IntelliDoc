@@ -10,7 +10,8 @@ from .database import BASE_DIR, DB_PATH, Base, engine, get_db
 from .models import Document
 from .algorithms.hashing import sha256_of_bytes, sha256_of_file
 from .algorithms.extraction import ExtractionError, extract_text
-from .algorithms.similarity import similar_pairs
+from .algorithms.similarity import build_tfidf, similar_pairs
+from .algorithms.search import make_snippet, search_documents
 
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -155,6 +156,81 @@ def list_documents(db: Session = Depends(get_db)):
         }
         for d in docs
     ]
+
+
+@app.get("/api/search")
+def search_documents_endpoint(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """Search extracted document content and return explainable results."""
+    query = q.strip()
+
+    if not query:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="Query is empty")
+
+    documents = (
+        db.query(Document)
+        .filter(
+            Document.status == "ready",
+            Document.extracted_text.isnot(None),
+        )
+        .order_by(Document.id.asc())
+        .all()
+    )
+
+    # Exclude extracted text that is empty or contains only whitespace.
+    documents = [
+        doc
+        for doc in documents
+        if doc.extracted_text and doc.extracted_text.strip()
+    ]
+
+    if not documents:
+        return {"query": query, "total": 0, "results": []}
+
+    texts = [doc.extracted_text for doc in documents]
+
+    try:
+        vectorizer, matrix = build_tfidf(texts)
+    except ValueError:
+        # For example, every document may contain only stop words.
+        return {"query": query, "total": 0, "results": []}
+
+    matches = search_documents(
+        vectorizer,
+        matrix,
+        query,
+        top_k=limit,
+    )
+
+    results = []
+
+    for index, score, keywords in matches:
+        document = documents[index]
+
+        results.append(
+            {
+                "id": document.id,
+                "filename": document.original_filename,
+                "file_type": document.file_type,
+                "score": round(score, 4),
+                "matched_keywords": keywords,
+                "snippet": make_snippet(
+                    document.extracted_text,
+                    keywords,
+                ),
+            }
+        )
+
+    return {
+        "query": query,
+        "total": len(results),
+        "results": results,
+    }
 
 
 @app.get("/api/related")

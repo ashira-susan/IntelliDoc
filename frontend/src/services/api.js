@@ -77,3 +77,23 @@ export async function getRelated(threshold = 0.25) {
 
   return response.json();
 }
+
+
+export async function searchDocuments(query, limit = 10) {
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(limit),
+  });
+
+  const response = await fetch(`${API_URL}/api/search?${params}`);
+
+  if (!response.ok) {
+    if (response.status === 400) {
+      throw new Error("Please enter a search query.");
+    }
+
+    throw new Error(`Search failed (${response.status})`);
+  }
+
+  return response.json();
+}

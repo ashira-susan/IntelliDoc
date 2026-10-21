@@ -5,6 +5,7 @@ import UploadPanel from "./components/UploadPanel";
 import DuplicatePanel from "./components/DuplicatePanel";
 import { getDocuments, getHealth, getDuplicates } from "./services/api";
 import RelatedPanel from "./components/RelatedPanel";
+import SearchPanel from "./components/SearchPanel";
 
 function App() {
   const [health, setHealth] = useState(null);
@@ -49,6 +50,8 @@ function App() {
       {error && (
         <p style={{ color: "crimson" }}>Backend unreachable: {error}</p>
       )}
+
+      <SearchPanel />
 
       <UploadPanel onUploaded={loadDocuments} />
 
