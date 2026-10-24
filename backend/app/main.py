@@ -1,14 +1,17 @@
 import sqlite3
+import re
 import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, File, Form, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
+from sqlalchemy import func
 
 from .database import BASE_DIR, DB_PATH, Base, engine, get_db
-from .models import Document
+from .models import Document, Operation, OperationItem
 from .algorithms.hashing import sha256_of_bytes, sha256_of_file
 from .algorithms.extraction import ExtractionError, extract_text
 from .algorithms.similarity import build_tfidf, similar_pairs
@@ -19,6 +22,8 @@ from .algorithms.versioning import (
     filename_similarity,
     group_indices,
 )
+from .algorithms.organizer import cluster_documents, folder_name
+from .config import ORGANIZE_DISTANCE
 
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -31,6 +36,17 @@ FAMILY_MIN_CONTENT = 0.30
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mr. IntelliDoc API")
+
+INVALID_FOLDER_CHARS = re.compile(r'[\\/:*?"<>|]')
+
+
+class FolderPlan(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    document_ids: list[int]
+
+
+class ApplyRequest(BaseModel):
+    folders: list[FolderPlan] = Field(min_length=1)
 
 app.add_middleware(
     CORSMiddleware,
@@ -168,6 +184,7 @@ def list_documents(db: Session = Depends(get_db)):
         {
             "id": d.id,
             "filename": d.original_filename,
+            "folder": d.folder,
             "file_type": d.file_type,
             "file_size": d.file_size,
             "status": d.status,
@@ -583,3 +600,275 @@ def get_document(doc_id: int, db: Session = Depends(get_db)):
             doc.uploaded_at.isoformat() if doc.uploaded_at else None
         ),
     }
+
+
+@app.get("/api/organize/suggest")
+def suggest_organization(
+    distance: float = Query(ORGANIZE_DISTANCE, ge=0.1, le=1.0),
+    db: Session = Depends(get_db),
+):
+    docs = (
+        db.query(Document)
+        .filter(
+            Document.status == "ready",
+            Document.extracted_text.isnot(None),
+        )
+        .order_by(Document.id)
+        .all()
+    )
+
+    if len(docs) < 2:
+        return {
+            "folders": [],
+            "message": (
+                "At least 2 analyzed documents are needed "
+                "to suggest folders."
+            ),
+        }
+
+    texts = [doc.extracted_text for doc in docs]
+
+    try:
+        vectorizer, matrix = build_tfidf(texts)
+    except ValueError:
+        return {
+            "folders": [],
+            "message": "No usable text to analyze.",
+        }
+
+    clusters = cluster_documents(matrix, distance)
+    folders = []
+    miscellaneous = []
+    used_names = set()
+
+    for indices in sorted(clusters, key=len, reverse=True):
+        if len(indices) == 1:
+            miscellaneous.extend(indices)
+            continue
+
+        name = folder_name(vectorizer, matrix, indices)
+        base_name = name
+        suffix = 2
+
+        while name in used_names:
+            name = f"{base_name} {suffix}"
+            suffix += 1
+
+        used_names.add(name)
+        folders.append((name, indices))
+
+    if miscellaneous:
+        folders.append(("Miscellaneous", miscellaneous))
+
+    return {
+        "distance_threshold": distance,
+        "folders": [
+            {
+                "name": name,
+                "documents": [
+                    {
+                        "id": docs[index].id,
+                        "filename": docs[index].original_filename,
+                        "current_folder": docs[index].folder,
+                    }
+                    for index in indices
+                ],
+            }
+            for name, indices in folders
+        ],
+    }
+
+
+@app.post("/api/organize/apply")
+def apply_organization(
+    req: ApplyRequest,
+    db: Session = Depends(get_db),
+):
+    seen = set()
+    changes = []
+
+    # Validate folder names and prevent duplicate document assignments.
+    for folder_plan in req.folders:
+        name = folder_plan.name.strip()
+
+        if (
+            not name
+            or name in (".", "..")
+            or INVALID_FOLDER_CHARS.search(name)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid folder name: {folder_plan.name!r}",
+            )
+
+        for doc_id in folder_plan.document_ids:
+            if doc_id in seen:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Document {doc_id} appears in more than one folder"
+                    ),
+                )
+
+            seen.add(doc_id)
+            changes.append((doc_id, name))
+
+    if not seen:
+        raise HTTPException(
+            status_code=400,
+            detail="No documents were supplied",
+        )
+
+    # Confirm every requested document exists.
+    docs = {
+        doc.id: doc
+        for doc in db.query(Document)
+        .filter(Document.id.in_(seen))
+        .all()
+    }
+
+    missing = seen - set(docs)
+
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown document id(s): {sorted(missing)}",
+        )
+
+    # Do not create a history entry if nothing would change.
+    to_change = [
+        (docs[doc_id], folder_name)
+        for doc_id, folder_name in changes
+        if docs[doc_id].folder != folder_name
+    ]
+
+    if not to_change:
+        raise HTTPException(
+            status_code=400,
+            detail="Nothing to change",
+        )
+
+    try:
+        operation = Operation()
+        db.add(operation)
+        db.flush()
+
+        for doc, new_folder in to_change:
+            db.add(
+                OperationItem(
+                    operation_id=operation.id,
+                    document_id=doc.id,
+                    old_folder=doc.folder,
+                    new_folder=new_folder,
+                )
+            )
+            doc.folder = new_folder
+
+        db.commit()
+
+        return {
+            "operation_id": operation.id,
+            "moved": len(to_change),
+        }
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+@app.post("/api/organize/undo/{op_id}")
+def undo_operation(op_id: int, db: Session = Depends(get_db)):
+    op = db.get(Operation, op_id)
+
+    if op is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Operation not found",
+        )
+
+    if op.status != "applied":
+        raise HTTPException(
+            status_code=409,
+            detail="Operation was already undone",
+        )
+
+    latest = (
+        db.query(Operation)
+        .filter(Operation.status == "applied")
+        .order_by(Operation.id.desc())
+        .first()
+    )
+
+    if latest is None or latest.id != op.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Only the most recent applied operation can be undone",
+        )
+
+    items = (
+        db.query(OperationItem)
+        .filter(OperationItem.operation_id == op.id)
+        .all()
+    )
+
+    for item in items:
+        doc = db.get(Document, item.document_id)
+        if doc is not None:
+            doc.folder = item.old_folder
+
+    op.status = "undone"
+    op.undone_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    return {
+        "operation_id": op.id,
+        "restored": len(items),
+    }
+
+@app.get("/api/folders")
+def get_folders(db: Session = Depends(get_db)):
+    groups = {}
+
+    for doc in db.query(Document).order_by(Document.id).all():
+        folder_name = doc.folder or "Unorganized"
+        groups.setdefault(folder_name, []).append(
+            {
+                "id": doc.id,
+                "filename": doc.original_filename,
+            }
+        )
+
+    return [
+        {"name": name, "documents": documents}
+        for name, documents in sorted(groups.items())
+    ]
+
+
+@app.get("/api/history")
+def get_history(db: Session = Depends(get_db)):
+    counts = dict(
+        db.query(
+            OperationItem.operation_id,
+            func.count(OperationItem.id),
+        )
+        .group_by(OperationItem.operation_id)
+        .all()
+    )
+
+    operations = (
+        db.query(Operation)
+        .order_by(Operation.id.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": op.id,
+            "type": op.operation_type,
+            "status": op.status,
+            "created_at": op.created_at.isoformat(),
+            "documents_affected": counts.get(op.id, 0),
+        }
+        for op in operations
+    ]

@@ -19,6 +19,7 @@ export default function DocumentTable({ documents, onViewDocument }) {
           <tr style={{ textAlign: "left" }}>
             <th>ID</th>
             <th>Filename</th>
+            <th>Folder</th>
             <th>Type</th>
             <th>Size</th>
             <th>Status</th>
@@ -31,6 +32,7 @@ export default function DocumentTable({ documents, onViewDocument }) {
             <tr key={doc.id}>
               <td>{doc.id}</td>
               <td>{doc.filename}</td>
+              <td>{doc.folder || "Unorganized"}</td>
               <td>{doc.file_type}</td>
               <td>{formatSize(doc.file_size)}</td>
               <td>{doc.status}</td>

@@ -66,7 +66,6 @@ export async function getDocumentDetails(id) {
   return response.json();
 }
 
-
 export async function getRelated(threshold = 0.25) {
   const response = await fetch(
     `${API_URL}/api/related?threshold=${encodeURIComponent(threshold)}`
@@ -78,7 +77,6 @@ export async function getRelated(threshold = 0.25) {
 
   return response.json();
 }
-
 
 export async function searchDocuments(query, limit = 10) {
   const params = new URLSearchParams({
@@ -99,7 +97,6 @@ export async function searchDocuments(query, limit = 10) {
   return response.json();
 }
 
-
 export async function getFamilies(threshold = 0.60) {
   const response = await fetch(
     `${API_URL}/api/families?threshold=${encodeURIComponent(threshold)}`
@@ -111,6 +108,93 @@ export async function getFamilies(threshold = 0.60) {
     }
 
     throw new Error(`Version-family detection failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function suggestOrganization(distance = 0.8) {
+  const params = new URLSearchParams({
+    distance: String(distance),
+  });
+
+  const response = await fetch(
+    `${API_URL}/api/organize/suggest?${params}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Organization suggestions failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function applyOrganization(folders) {
+  const response = await fetch(`${API_URL}/api/organize/apply`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ folders }),
+  });
+
+  if (!response.ok) {
+    let message = `Applying organization failed (${response.status})`;
+
+    try {
+      const data = await response.json();
+      if (typeof data.detail === "string") {
+        message = data.detail;
+      }
+    } catch {
+      // Keep the fallback message if the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export async function undoOperation(operationId) {
+  const response = await fetch(
+    `${API_URL}/api/organize/undo/${operationId}`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    let message = `Undo failed (${response.status})`;
+
+    try {
+      const data = await response.json();
+      if (typeof data.detail === "string") {
+        message = data.detail;
+      }
+    } catch {
+      // Keep the fallback message if the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export async function getFolders() {
+  const response = await fetch(`${API_URL}/api/folders`);
+
+  if (!response.ok) {
+    throw new Error(`Loading folders failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function getHistory() {
+  const response = await fetch(`${API_URL}/api/history`);
+
+  if (!response.ok) {
+    throw new Error(`Loading organization history failed (${response.status})`);
   }
 
   return response.json();

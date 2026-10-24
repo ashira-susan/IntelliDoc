@@ -7,6 +7,7 @@ import DuplicatePanel from "./components/DuplicatePanel";
 import { getDocuments, getHealth, getDuplicates } from "./services/api";
 import RelatedPanel from "./components/RelatedPanel";
 import SearchPanel from "./components/SearchPanel";
+import OrganizePanel from "./components/OrganizePanel";
 
 function App() {
   const [health, setHealth] = useState(null);
@@ -78,6 +79,8 @@ function App() {
       <RelatedPanel />
 
       <FamilyPanel />
+
+      <OrganizePanel onChanged={loadDocuments} />
     </div>
   );
 }
